@@ -9,7 +9,7 @@
             <input type="hidden" class="form-control" name="transaction_type" value="withdraw" id="exampleFormControlInput1" placeholder="0.00">
             <span style="color: red">{{ session('error') }}</span>
         </div>
-        <button type="submit" class="btn btn-primary">Primary</button>
+        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
 
 @endsection
