@@ -9,6 +9,7 @@ use App\Traits\RateCalculateTrait;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class BusinessDashboardController extends Controller
 {
@@ -62,46 +63,43 @@ class BusinessDashboardController extends Controller
     {
 
         $user = $request->user();
+        $withdrawalAmount = $request->amount;
         if ($user->balance < $request->amount) {
             return redirect()->back()->with('error', 'You do not have sufficient balance');
         }
 
-        $currentDate = Carbon::now();
+        $totalWithdrawals = $user->transactions()->where('transaction_type', 'withdraw')
+            ->sum('amount');
 
-        $withdrawalFee = 0; // Initialize the withdrawal fee to zero
-
-        if (!$currentDate->isFriday()) {
-            // Calculate the fee only if it's not a Friday and the withdrawal amount is greater than $1,000
-            $currentDate = Carbon::now();
-            $firstDayOfMonth = $currentDate->startOfMonth();
-            $lastDayOfMonth = $currentDate->endOfMonth();
-
-            // Calculate the total withdrawals for the current month
-            $totalWithdrawals = $user->transactions()->where('transaction_type','withdraw')
-                ->where('created_at', '>=', $firstDayOfMonth)
-                ->where('created_at', '<=', $lastDayOfMonth)
-                ->sum('amount');
-            $remainingFreeWithdrawalLimit = 5000 - $totalWithdrawals;
-            if ($request->amount > $remainingFreeWithdrawalLimit) {
-                $excessAmount = $request->amount - $remainingFreeWithdrawalLimit; // Calculate the excess amount
-                $feeRate = 0.025; // 2.5% fee rate, adjust as needed
-                $withdrawalFee = $excessAmount * $feeRate;
-            }
-            if ($request->amount > 1000) {
-                $excessAmount = $request->amount - 1000; // Calculate the excess amount
-                $withdrawalFee = $this->rateCalculate('0.025', $excessAmount);
-            }else{
-                $withdrawalFee = $this->rateCalculate('0.025', $request->amount);
-            }
+        if ($user->account_type === 'business' && $totalWithdrawals > 50000) {
+            $feeRate = 0.015; // Reduced fee rate of 1.5%
+        } else {
+            $feeRate = 0.025; // Default fee rate of 2.5%
         }
-        $newBalance = $user->balance - $request->amount - $withdrawalFee;
-        $user->update(['balance' => $newBalance]);
-        $user->transactions()->create([
-            'amount' => $request->amount,
-            'fee' => $withdrawalFee,
-        ]);
-        return redirect()->route('business.all.transaction');
+        $currentDate = Carbon::now();
+        if (!$currentDate->isFriday()) {
+            $afterRate = $this->rateCalculate($user, $feeRate, $withdrawalAmount);
+        } else {
+            $newBalance = $user->balance - $withdrawalAmount;
+            $afterRate = [
+                'newBalance' => $newBalance,
+                'withdrawalFee' => null,
+            ];
+        }
+
+        DB::beginTransaction();
+        try {
+            $user->update(['balance' => $afterRate['newBalance']]);
+            $user->transactions()->create([
+                'amount' => $withdrawalAmount,
+                'fee' => $afterRate['withdrawalFee'],
+            ]);
+            DB::commit();
+            return redirect()->route('business.all.transaction');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Something went wrong');
+        }
+
     }
-
-
 }

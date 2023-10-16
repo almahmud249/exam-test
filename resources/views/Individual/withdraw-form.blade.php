@@ -1,7 +1,8 @@
 
-@extends('business.dashboard')
+@extends('individual.dashboard')
 @section('content')
-    <form action="{{route('business.withdraw')}}">
+    <form action="{{route('individual.withdraw')}}" method="POST">
+        @csrf
         <div class="mb-3">
             <label for="exampleFormControlInput1" class="form-label">Enter amount</label>
             <input type="text" class="form-control" name="amount" id="exampleFormControlInput1" placeholder="0.00">

@@ -57,13 +57,12 @@
                 }
             </style>
             <div class="sidebar">
-                <a class="active" href="{{route('individual.dashboard')}}">Home</a>
-                <a href="{{route('individual.create.deposit')}}">Deposit</a>
-                <a href="{{route('individual.create.withdraw')}}">Withdraw</a>
-                <a href="{{route('individual.all.transaction')}}">All Transactions</a>
-                <a href="{{route('individual.all.deposit.transaction')}}">All Deposit Transactions</a>
-                <a href="{{route('individual.all.withdraw.transaction')}}">All Withdraw Transactions</a>
-
+                <a class="{{Request::segment(2) == 'dashboard' ? ' active' : ''}}" href="{{route('individual.dashboard')}}">Home</a>
+                <a class="{{Request::segment(2) == 'create-deposit' ? ' active' : ''}}" href="{{route('individual.create.deposit')}}">Deposit</a>
+                <a class="{{Request::segment(2) == 'create-withdraw' ? ' active' : ''}}" href="{{route('individual.create.withdraw')}}">Withdraw</a>
+                <a class="{{Request::segment(2) == 'all-transaction' ? ' active' : ''}}" href="{{route('individual.all.transaction')}}">All Transactions</a>
+                <a class="{{Request::segment(2) == 'all-deposit-transaction' ? ' active' : ''}}" href="{{route('individual.all.deposit.transaction')}}">All Deposit Transactions</a>
+                <a class="{{Request::segment(2) == 'all-withdraw-transaction' ? ' active' : ''}}" href="{{route('individual.all.withdraw.transaction')}}">All Withdraw Transactions</a>
             </div>
             <div class="content">
                 @yield('content')

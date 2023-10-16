@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Individual;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TransactionRequest;
 use App\Models\Transaction;
+use App\Traits\RateCalculateTrait;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class IndividualDashboardController extends Controller
 {
+    use RateCalculateTrait;
     public function create()
     {
         return view('individual.dashboard');
@@ -43,18 +47,38 @@ class IndividualDashboardController extends Controller
 
     public function withdraw(TransactionRequest $request)
     {
-        $withdrawalRates = 0.015;
-        $withdrawalFee = $request->amount * $withdrawalRates;
         $user = $request->user();
+        $withdrawalAmount = $request->amount;
         if ($user->balance < $request->amount) {
             return redirect()->back()->with('error', 'You do not have sufficient balance');
         }
-        $newBalance = $user->balance - $request->amount - $withdrawalFee;
 
-        $user->update(['balance' => $newBalance]);
+        $feeRate = 0.015; // Reduced fee rate of 1.5%
 
-        $user->transactions()->create($request->validated());
-        return redirect()->route('individual.all.transaction');
+        $currentDate = Carbon::now();
+        if (!$currentDate->isFriday()) {
+            $afterRate = $this->rateCalculate($user, $feeRate, $withdrawalAmount);
+        } else {
+            $newBalance = $user->balance - $withdrawalAmount;
+            $afterRate = [
+                'newBalance' => $newBalance,
+                'withdrawalFee' => null,
+            ];
+        }
+
+        DB::beginTransaction();
+        try {
+            $user->update(['balance' => $afterRate['newBalance']]);
+            $user->transactions()->create([
+                'amount' => $withdrawalAmount,
+                'fee' => $afterRate['withdrawalFee'],
+            ]);
+            DB::commit();
+            return redirect()->route('individual.all.transaction');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Something went wrong');
+        }
     }
 
     public function allDepositTransactions(Request $request)
